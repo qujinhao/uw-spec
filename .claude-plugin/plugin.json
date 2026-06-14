@@ -1,0 +1,20 @@
+{
+  "name": "uw-spec",
+  "description": "开发流程规范（agents + skills），覆盖需求、设计、开发、测试、文档全流程",
+  "version": "1.0.0",
+  "author": {
+    "name": "axeon",
+    "email": "23231269@qq.com"
+  },
+  "homepage": "https://github.com/axeon/uw-spec",
+  "repository": "https://github.com/axeon/uw-spec",
+  "license": "MIT",
+  "keywords": [
+    "uw",
+    "uniweb",
+    "saas",
+    "tdd",
+    "workflow",
+    "specification"
+  ]
+}
