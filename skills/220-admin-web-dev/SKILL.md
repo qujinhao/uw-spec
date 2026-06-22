@@ -57,6 +57,7 @@ version: "3.0.0"
 | 列表页加载使用 `useActivated` | 使用 `onMounted` |
 | CRUD 操作使用 `useCrud` hooks | 手写增删改查逻辑 |
 | `ref`/`computed`/`onMounted` 等自动导入，不手动 import | 手动 `import { ref } from 'vue'` |
+| `src/components` 下组件自动导入（`components.d.ts`），不手动 import | 手动 import 组件 |
 | 类型导入 `import { type Xxx, fn } from '...'` | 混合导入值和类型不加 type |
 
 ### 数据与样式约定
@@ -70,6 +71,10 @@ version: "3.0.0"
 | 样式使用 CSS 类 | `style="..."` 内联样式 |
 | 表单控件包含 `placeholder` 属性 | 无 placeholder |
 | 弹窗按钮：取消在左（icon="Close"），保存在右（icon="Check"） | 按钮顺序不一致 |
+| 禁用按钮：`<el-button type="info"><i class="iconfont jinyong"></i></el-button>` | `icon="CircleClose"` 等 Element Plus 图标 |
+| SearchForm `formItemWidth` 普通项 280、时间范围 480、其他范围 380 | 自由设值（240/300/320 等） |
+| 状态字段 `el-tag` type：1=success / 0=info / -1=danger，文本用 `handleTypeForLabel(row.state, commonTypes)` | 三元表达式硬编码（`row.state === 1 ? '启用' : '停用'`） |
+| 时间字段展示统一 `{{ formatDate(row.xxxDate) }}` | `row.xxxDate ? formatDate(row.xxxDate) : '--'`（formatDate 内部已处理空值） |
 | API 响应类型 `.then((res: ResponseData<Xxx>)` | `.then(res =>` 无类型 |
 
 > 编码规范详见 [coding-principles.md](references/coding-principles.md)，目录结构和框架规范详见 [web-dev-standards.md](references/web-dev-standards.md)
@@ -149,7 +154,22 @@ version: "3.0.0"
 
 > 禁止使用 `dateRange`、`date`、`checkbox` 等不在白名单中的 componentType。
 
-**页面模板**：参见 [code-templates.md](references/code-templates.md)、[dev-templates.md](references/dev-templates.md)
+**SearchForm componentType 选型规则**（按业务场景，不是按白名单顺序）：
+
+| 业务场景 | API 字段类型 | componentType | 关键属性 |
+|---|---|---|---|
+| 时间段范围（创建时间/修改时间等 Range） | Array<string> | `datePicker` | `type: 'datetimerange'` + `shortcuts` |
+| 单个日期 | string | `datePicker` | `type: 'date'` 或 'datetime' |
+| 单选下拉（状态/类型枚举） | number | `select` | `options: xxxTypes.value` |
+| 多选下拉 | Array<number> | `selectv2` | `multiple: true` |
+| 关键字搜索 | string | `input` | `enterable: true` |
+| 数值范围 | Array<number> | `inputNumberRange` | - |
+| 时间段（仅时分） | Array<string> | `timePicker` | - |
+| 层级选择 | Array<string/number> | `cascader` | - |
+
+> ❌ 禁用：`selectAndDatePicker` 用于纯范围搜索（它是"单选+单日期"组合，不是范围）
+
+**页面模板**：参见 [code-templates.md](references/code-templates.md)
 
 #### Step 3: API 对接 + 交互完善
 
@@ -166,7 +186,7 @@ version: "3.0.0"
 | 搜索/重置 | SearchForm `@search` / `@change` 事件触发 `handleList` |
 | 分页 | Pagination 组件 `@page-size-change` / `@current-change` 事件 |
 | 导出 | `useExportExcel` hooks |
-| 状态管理 | 跨页面共享状态使用 Pinia Store（setup 风格），页面私有使用 `ref`/`reactive` |
+| 状态管理 | 跨页面共享状态使用 Pinia Store（Options 风格），页面私有使用 `ref`/`reactive` |
 | 业务组件 | 多页面复用 UI 提取到 `src/components/business/`，复用逻辑提取为 `src/hooks/useXxx.ts` |
 
 #### Step 4: 测试驱动开发（Red-Green 内部循环）
@@ -215,6 +235,8 @@ grep -rn 'ElMessageBox' src/pages/ --include="*.vue" | wc -l
 grep -rn '\.then(.*res =>' src/pages/ --include="*.vue" | wc -l
 grep -rn 'res\.data\?\.list\b' src/ --include="*.vue" --include="*.ts" | wc -l
 grep -rn 'onMounted' src/pages/ --include="*.vue" | wc -l
+grep -rn "import.*from '@/components/" src/pages/ --include="*.vue" | grep -v "type\|SearchFormType" | wc -l
+grep -rn 'interface commonType' src/pages/ --include="*.vue" | wc -l
 ```
 
 以上命令输出均应为 `0`。完整验证命令见 [coding-principles.md](references/coding-principles.md)。
@@ -238,7 +260,7 @@ pnpm build && pnpm vue-tsc --noEmit
 - [ ] 状态/类型字段使用 number 值（非 string）
 - [ ] 无 `as any`（模板框架 `proxy as any` 除外）
 - [ ] SearchForm componentType 全部使用白名单中的值
-- [ ] 页面按角色正确组织到 `pages/{role}/` 目录
+- [ ] 页面按模块+角色正确组织到 `pages/{模块名}/{角色}/` 目录
 - [ ] 路由配置正确，权限控制正常
 - [ ] `pnpm build` 编译通过
 - [ ] `pnpm vue-tsc --noEmit` 无类型错误
@@ -258,5 +280,6 @@ pnpm build && pnpm vue-tsc --noEmit
 - [编码原则](references/coding-principles.md) - 四条核心原则 + 自动化验证命令
 - [设计模板](references/design-templates.md) - README页面清单 + TASKS.md模板
 - [代码模板](references/code-templates.md) - 列表页/详情页/表单页代码模板
-- [开发模板](references/dev-templates.md) - 完整 CRUD 页面模板 + selectOptions 规范
+- [页面类型规则](references/page-type-rules.md) - PRD关键词→页面类型/复杂度/目录命名
+- [API Schema映射](references/api-schema-mapping.md) - API字段→前端组件映射规范
 - [Web 端评审技能](../221-admin-web-dev-review/SKILL.md)
