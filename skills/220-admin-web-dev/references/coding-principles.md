@@ -397,6 +397,147 @@ const searchList = ref<SearchFormType[]>([
 > ✅ 必须：`<el-button type="info"><i class="iconfont jinyong"></i></el-button>`
 
 
+### 表单/详情页响应式布局规范
+
+**原则**：所有表单项必须使用 `el-row + el-col` 双层包裹，确保不同屏幕尺寸下的自适应展示。
+
+#### 1. el-row 配置（必设）
+
+| 属性 | 统一值 | 说明 |
+|---|---|---|
+| `:gutter` | `10` | 列间距固定为 10px，防止表单挤在一起 |
+
+**标准写法**：
+```vue
+<el-row
+  :gutter="10"
+>
+  <el-col ...>
+    <el-form-item ... />
+  </el-col>
+  <el-col ...>
+    <el-form-item ... />
+  </el-col>
+</el-row>
+```
+
+#### 2. el-col 配置（必填）
+
+| 属性 | 统一值 | 说明 |
+|---|---|---|
+| `:xl` | `10`（数字） | 大屏幕（≥1920px）栅格宽度，一行 2 列 |
+| `:lg` | `12`（数字） | 中等屏幕（≥1200px）栅格宽度，一行 2 列 |
+
+> ⚠️ **必须用冒号前缀 `:xl :lg`**（v-bind 数字），不要用 `xl="10" lg="12"`（字符串）
+> ❌ **禁止**：使用 `:span=` 写死栅格宽度
+> ❌ **禁止**：使用 `:push=` 偏移（已由栅格自动居中处理）
+
+#### 3. 表单控件宽度
+
+- **所有可设宽度的表单控件**（`el-input` / `el-input-number` / `el-date-picker` / `el-select` 等）默认宽度 **100%**，自适应所在 `el-col` 的宽度
+- 无需设置 `width-full` class，不写任何宽度样式即可（Element Plus 控件默认 100% 宽度）
+- ❌ **禁止**：写死固定像素宽度（如 `style="width: 480px"` / `class="form-input-w-480"` /`:style="{width:'480px'}"`）
+
+#### 4. 推荐行结构
+
+| 一行列数 | el-col 配置 | 布局效果 |
+|---|---|---|
+| 2 列 | `:xl="10" :lg="12"` × 2 | 标准双列，大屏幕/中屏自动适配，左右留白均匀 |
+| 1 列 | `:xl="20" :lg="22"` | 大跨度字段（富文本/备注/附件等），居中对齐 |
+
+#### 5. 标准参考样例
+
+**双列布局**（每行 2 个字段，自适应大屏/中屏）：
+
+```vue
+<el-row
+  :gutter="10"
+>
+  <el-col
+    :xl="10"
+    :lg="12"
+  >
+    <el-form-item
+      label="联系人姓名"
+      prop="contactName"
+    >
+      <el-input
+        v-model="baseForm.contactName"
+        placeholder="请输入"
+        clearable
+      />
+    </el-form-item>
+  </el-col>
+  <el-col
+    :xl="10"
+    :lg="12"
+  >
+    <el-form-item
+      label="手机号码"
+      prop="contactMobile"
+    >
+      <el-input
+        v-model="baseForm.contactMobile"
+        placeholder="请输入"
+        clearable
+      />
+    </el-form-item>
+  </el-col>
+</el-row>
+```
+
+**要点解读**：
+- `:xl="10"` 大屏（≥1920px）每列占 10/24，两列总 20/24
+- `:lg="12"` 中屏（≥1200px）每列占 12/24，两列总 24/24 撑满
+- **必须用冒号前缀**（v-bind 数字），不带冒号会被解析为字符串 `"10"`，Element Plus 内部会做严格 number 类型校验
+- 表单组件**不设宽度**，自动 100% 撑满所在 `el-col`
+
+**单列大跨度布局**（富文本、长文本、附件区等）：
+
+```vue
+<el-row
+  :gutter="10"
+>
+  <el-col
+    :xl="20"
+    :lg="22"
+  >
+    <el-form-item
+      label="详细描述"
+      prop="description"
+    >
+      <el-input
+        v-model="formData.description"
+        type="textarea"
+        :autosize="{ minRows: 3 }"
+        placeholder="请输入"
+        maxlength="500"
+      />
+    </el-form-item>
+  </el-col>
+</el-row>
+```
+
+#### 6. 禁止清单
+
+| ❌ 错误写法 | ✅ 正确写法 |
+|---|---|
+| `el-form` 直接子节点是 `el-form-item`（无 row/col 包裹） | `el-form-item` 外层必须先包 `el-col`，再外层包 `el-row` |
+| `<el-col :span="6">` / `<el-col :span="10">` | `<el-col :xl="10" :lg="12">`（标准双列）或 `<el-col :xl="20" :lg="22">`（单列） |
+| `<el-col xl="10" lg="12">` 无冒号传字符串 | `<el-col :xl="10" :lg="12">` 必须冒号绑定数字 |
+| `<el-col :push="2">` 用偏移控制对齐 | 用栅格自适应，无需 push |
+| `<el-input style="width: 480px" />` | `<el-input />`（默认 100% 撑满 col 即可） |
+| `<el-input class="form-input-w-480" />` 自定义宽度类 | `<el-input />`（无需宽度类） |
+| `gutter=0` 或无 gutter 配置 | 统一 `:gutter="10"` |
+| 垂直间距靠 `<br />` 或内联 `style` 处理 | 用 `class="margin-bottom-10"` 统一控制行间距 |
+
+#### 7. 特殊字段处理
+
+- **大跨度字段**（富文本、长描述、图片上传区等）：单 `el-col` 用 `:xl="20" :lg="22"`
+- **状态/单选组字段**：用标准 `:xl="10" :lg="12"` 即可
+- **多组件一行场景**（如 daterange+input 组合）：放入同一 `el-form-item`，由 form-item 内部 flex 布局处理，外层 col 仍用 `:xl="10" :lg="12"` 或 `:xl="20" :lg="22"`
+
+
 ### 状态字段（state）展示规范
 
 `state` 字段是项目内最常用的枚举字段，列表/详情/标签均必须遵循以下规范。

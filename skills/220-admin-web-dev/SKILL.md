@@ -75,6 +75,7 @@ version: "3.0.0"
 | SearchForm `formItemWidth` 普通项 280、时间范围 480、其他范围 380 | 自由设值（240/300/320 等） |
 | 状态字段 `el-tag` type：1=success / 0=info / -1=danger，文本用 `handleTypeForLabel(row.state, commonTypes)` | 三元表达式硬编码（`row.state === 1 ? '启用' : '停用'`） |
 | 时间字段展示统一 `{{ formatDate(row.xxxDate) }}` | `row.xxxDate ? formatDate(row.xxxDate) : '--'`（formatDate 内部已处理空值） |
+| 表单/详情页表单项必须用 `el-row + el-col` 包裹，`el-col` 统一 `:xl="10" :lg="12"`（数字绑定，不用 `span`），表单组件默认宽度 100% | 用 `:span=` 写死栅格、用无冒号 `xl="10"` 传字符串、表单组件设固定像素宽度 |
 | API 响应类型 `.then((res: ResponseData<Xxx>)` | `.then(res =>` 无类型 |
 
 > 编码规范详见 [coding-principles.md](references/coding-principles.md)，目录结构和框架规范详见 [web-dev-standards.md](references/web-dev-standards.md)
