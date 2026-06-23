@@ -538,6 +538,249 @@ const searchList = ref<SearchFormType[]>([
 - **多组件一行场景**（如 daterange+input 组合）：放入同一 `el-form-item`，由 form-item 内部 flex 布局处理，外层 col 仍用 `:xl="10" :lg="12"` 或 `:xl="20" :lg="22"`
 
 
+### 表单项 size 规范
+
+**原则**：表单内所有组件（`el-input` / `el-select` / `el-button` / `el-input-number` / `el-date-picker` / `el-time-picker` 等）**默认不设置 `size` 属性**，由 `el-form` 的 `size` 全局统一控制（默认 `default`），从而保证表单内字段大小一致、风格统一。
+
+### 标准写法
+
+```vue
+<!-- ✅ 正确：表单内所有控件均不写 size -->
+<el-form :model="formData" label-width="110px">
+  <el-form-item label="名称">
+    <el-input v-model="formData.name" placeholder="请输入" />
+  </el-form-item>
+  <el-form-item label="状态">
+    <el-select v-model="formData.state" placeholder="请选择">
+      <el-option label="启用" :value="1" />
+      <el-option label="禁用" :value="0" />
+    </el-select>
+  </el-form-item>
+  <el-form-item label="价格">
+    <el-input-number v-model="formData.price" :min="0" />
+  </el-form-item>
+  <el-form-item>
+    <el-button @click="onCancel" icon="Close">取消</el-button>
+    <el-button type="primary" @click="onSubmit" icon="Check">保存</el-button>
+  </el-form-item>
+</el-form>
+```
+
+### 禁止清单
+
+| ❌ 错误写法 | ✅ 正确写法 |
+|---|---|
+| `<el-input size="small" />` 表单内单独设小号 | `<el-input />` 不设 size |
+| `<el-button size="small" />` 表单底部按钮设小号 | `<el-button />` 不设 size |
+| `<el-input-number size="large" />` 单字段设大号 | `<el-input-number />` 不设 size |
+| `<el-date-picker size="small" />` 表单内日期单独设小号 | `<el-date-picker />` 不设 size |
+| 表格行内编辑按钮（非表单）需要 `size="small"` 才合规 | 表格内操作按钮可保留 `size="small"`（属于表格规范，非表单规范） |
+
+> **例外**：表格行内的操作按钮（`<el-table-column>` → `<el-button size="small">`）允许设 `size="small"` —— 这是**表格规范**而非表单规范，两者互不冲突。
+
+### 文件 / 图片上传规范
+
+**原则**：项目内所有文件 / 图片上传必须使用 `@/components/UploadFile/index.vue` 业务组件，**禁止直接使用 `el-upload`** 或让用户手填 URL。该组件已封装：① OSS 直传签名 ② 图片子线程压缩 ③ 进度条 ④ 多类型预览（图/视频/PDF/Excel/Word）⑤ ref 关联与解绑。
+
+#### 1. 标准用法
+
+**模板**：
+
+```vue
+<UploadFile
+  ref="uploadFileRef"
+  v-model:fileListForShow="uploadFileList"
+  v-model:fileListForUpload="needUploadFileList"
+  :accept="acceptKeys"
+  :multiple="true"
+  :item-width="100"
+  :item-height="100"
+  :limit="2"
+  :uploadParams="uploadParams"
+/>
+```
+
+**Script**：
+
+```ts
+import { type UploadUserFile } from 'element-plus'
+import { type uploadFileUrl } from '@/components/UploadFile/type'
+
+// 已上传文件展示（el-upload 风格列表）
+const uploadFileList = ref<UploadUserFile[]>([])
+// 需要提交给后端的文件（含 id / realUrl / blobUrl）
+const needUploadFileList = ref<uploadFileUrl[]>([])
+// UploadFile 组件 ref，用于调用 handleUpdateRefId / handleUnLinkFile
+const uploadFileRef = ref<InstanceType<typeof UploadFile>>()
+
+// 接受的扩展名（必填）
+const acceptKeys = '.jpg,.jpeg,.png,.gif,.webp'
+
+// 上传业务参数（必填）
+const uploadParams = {
+  objectId: 0,                 // 关联业务记录 ID，新增前可填 0，保存后回填
+  objectType: 'xxxRefType'     // 业务约定的 refType 字符串
+}
+```
+
+**保存后必须调用**：
+
+```ts
+// 表单保存成功后，把临时上传的文件关联到真实业务 ID
+const handleSave = async () => {
+  const res = await saveXxx(formData.value)
+  if (res.state === 'success') {
+    // 关联 refId（必须）
+    uploadFileRef.value?.handleUpdateRefId(res.data?.id)
+    // 解绑被删除的文件（必须）
+    uploadFileRef.value?.handleUnLinkFile()
+    ElMessage.success('保存成功')
+  }
+}
+```
+
+#### 2. 常用 Props 速查
+
+| Prop | 类型 | 默认 | 说明 |
+|---|---|---|---|
+| `v-model:fileListForShow` | `UploadUserFile[]` | `[]` | 展示用列表（含 url、name、uid 等） |
+| `v-model:fileListForUpload` | `uploadFileUrl[]` | `[]` | 提交给后端的真实文件（含 id/realUrl） |
+| `accept` | `string` | - | 扩展名白名单逗号分隔，如 `'.jpg,.png,.pdf'` |
+| `multiple` | `boolean` | `false` | 是否多选 |
+| `limit` | `number` | - | 最大上传数量 |
+| `itemWidth` / `itemHeight` | `number/string` | `128px` | 单个文件缩略图尺寸 |
+| `listType` | `'picture-card' \| 'text'` | `'picture-card'` | 卡片式/文本列表 |
+| `disabled` | `boolean` | `false` | 禁用上传（详情模式） |
+| `accessType` | `number` | `0` | OSS 访问类型（私有/公开） |
+| `ossSite` | `'saasOssSite' \| 'sysOssSite'` | `'saasOssSite'` | OSS 站点选择 |
+| `needCompress` | `boolean` | `true` | 图片是否子线程压缩为 webp（80%） |
+| `autoUpload` | `boolean` | `true` | 选中后自动上传 |
+| `uploadParams` | `{ objectId, objectType }` | - | 必填业务参数 |
+| `expireDate` | `string` | - | 文件过期时间（按需） |
+
+#### 3. 暴露方法（必须按时机调用）
+
+| 方法 | 调用时机 | 用途 |
+|---|---|---|
+| `handleUpdateRefId(refId)` | 表单**保存成功后** | 把临时文件关联到真实业务 ID |
+| `handleUnLinkFile()` | 表单**保存成功后** | 解绑用户已删除的旧文件 |
+| `clearFiles()` | 弹窗关闭 / 表单 reset | 清空所有缓存 |
+
+#### 4. 不同场景配置参考
+
+| 场景 | 关键配置 |
+|---|---|
+| 单张头像 | `:limit="1"`, `:multiple="false"`, `accept=".jpg,.png,.webp"` |
+| 多张产品图 | `:limit="9"`, `:multiple="true"`, `:item-width="100" :item-height="100"` |
+| 视频上传 | `accept=".mp4,.mov"`, `:limit="1"` |
+| 附件（PDF/Excel/Word） | `accept=".pdf,.xlsx,.docx"`, `listType="text"` |
+| 详情页只读展示 | `disabled` |
+
+#### 5. 禁止清单
+
+| ❌ 错误写法 | ✅ 正确写法 |
+|---|---|
+| 直接用 `el-upload` 接业务 OSS | 用 `UploadFile` 组件 |
+| 用 `el-input` 让用户粘贴图片 URL | 用 `UploadFile` 上传 |
+| 不传 `uploadParams` | 必须传 `{ objectId, objectType }` |
+| 保存后不调用 `handleUpdateRefId` | 表单保存成功后必调 |
+| 删除文件不调用 `handleUnLinkFile` | 解绑被删除的旧文件，避免 OSS 文件残留 |
+| 多次实例化时不调 `clearFiles` 清缓存 | 弹窗/详情切换时调用 |
+| 图片字段在表单存 base64 / blob URL | 存 `realUrl`（OSS 真实路径），由 `needUploadFileList` 给出 |
+
+
+### el-table 统一配置规范
+
+**原则**：项目内所有 `el-table` 必须保持一致的基础视觉与行为，统一以下配置。
+
+| 属性 | 统一值 | 说明 |
+|---|---|---|
+| `:style` | `{ width: '100%' }` | 表格宽度撑满容器 |
+| `:header-cell-style` | `{ backgroundColor: 'var(--el-color-info-light-9)' }` | 表头浅灰背景，使用 CSS Var 兼容暗色模式 |
+| `stripe` | 必加 | 行斑马纹 |
+| `border` | 视场景加 | 列表页/表单内嵌表格建议加，简单展示可不加 |
+| `show-overflow-tooltip` | 视场景加 | 长文本列建议加 |
+
+**标准写法**：
+
+```vue
+<el-table
+  :data="tableData"
+  :style="{ width: '100%' }"
+  :header-cell-style="{
+    backgroundColor: 'var(--el-color-info-light-9)'
+  }"
+  stripe
+  border
+>
+  <el-table-column ... />
+</el-table>
+```
+
+> 适用范围：
+> - **列表页**：直接遵循
+> - **表单页/详情页中的内嵌表格**（如时间段配置、批量数据预览、子表）：同样必须遵循
+> - **业务组件**（如 `DataDiffTable`、`HistoryLog`）：以此为标杆
+
+| ❌ 错误写法 | ✅ 正确写法 |
+|---|---|
+| `<el-table>` 无 style/header-cell-style/stripe | 三件套必加 |
+| `style="width: 100%; background: #fff"` 内联混杂 | `:style="{ width: '100%' }"` 单独写 |
+| `header-cell-style="background: #f5f7fa"` 硬编码颜色 | `var(--el-color-info-light-9)` 用 CSS Var |
+| 表单页内嵌的临时表格"省略" stripe | 全项目统一，临时表格也必须 |
+
+
+### 币种 / 通用枚举下拉规范
+
+**原则**：所有公共枚举（币种、用户类型、状态、性别、语言等）必须使用 `@/utils/selectOptions.ts` 中 `useCommonSelectTypes` 暴露的 computed 数组，**禁止任何页面内硬编码 option**。
+
+**币种下拉标准写法**：
+
+```vue
+<script setup lang="ts">
+import { useCommonSelectTypes } from '@/utils/selectOptions'
+const { currencyTypes } = useCommonSelectTypes()
+</script>
+
+<template>
+  <el-select
+    v-model="formData.currency"
+    placeholder="请选择"
+    clearable
+    filterable
+  >
+    <el-option
+      v-for="currencyItem in currencyTypes"
+      :key="currencyItem.value"
+      :label="currencyItem.label"
+      :value="currencyItem.value"
+    />
+  </el-select>
+</template>
+```
+
+**已注册的常用枚举速查**：
+
+| 枚举名 | 用途 | 备注 |
+|---|---|---|
+| `currencyTypes` | 币种（CNY/USD/JPY/HKD/MOP 等 100+ 种） | 必加 `filterable` 支持搜索 |
+| `commonTypes` | 通用状态（1=启用 / 0=停用 / -1=删除） | 配合 `handleTypeForLabel` 使用 |
+| `userTypes` | 用户类型 | - |
+| `genderTypes` | 性别 | - |
+| `langTypes` | 语言 | - |
+
+> ⚠️ **重要**：如发现某枚举尚未在 `useCommonSelectTypes` 注册（如新增的业务枚举），必须先添加到 `selectOptions.ts`，再在页面使用，**禁止**在页面内 `const xxxOptions = [...]`。
+
+**禁止清单**：
+
+| ❌ 错误写法 | ✅ 正确写法 |
+|---|---|
+| `<el-option label="人民币" value="CNY"/>` 硬编码 4 个币种 | `v-for` 循环 `currencyTypes` |
+| 页面内 `const currencyOptions = [{label:'CNY', value:'CNY'}, ...]` | 用 `useCommonSelectTypes` 解构 |
+| 复用 `commonTypes` 显示币种 | 用专属 `currencyTypes`（带 i18n 翻译） |
+| 币种下拉无 `filterable` | 必加 `filterable`（币种数量多，需要搜索） |
+
+
 ### 状态字段（state）展示规范
 
 `state` 字段是项目内最常用的枚举字段，列表/详情/标签均必须遵循以下规范。

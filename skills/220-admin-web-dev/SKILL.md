@@ -76,6 +76,10 @@ version: "3.0.0"
 | 状态字段 `el-tag` type：1=success / 0=info / -1=danger，文本用 `handleTypeForLabel(row.state, commonTypes)` | 三元表达式硬编码（`row.state === 1 ? '启用' : '停用'`） |
 | 时间字段展示统一 `{{ formatDate(row.xxxDate) }}` | `row.xxxDate ? formatDate(row.xxxDate) : '--'`（formatDate 内部已处理空值） |
 | 表单/详情页表单项必须用 `el-row + el-col` 包裹，`el-col` 统一 `:xl="10" :lg="12"`（数字绑定，不用 `span`），表单组件默认宽度 100% | 用 `:span=` 写死栅格、用无冒号 `xl="10"` 传字符串、表单组件设固定像素宽度 |
+| `el-table` 统一配置：`:style="{ width: '100%' }"` + `:header-cell-style="{ backgroundColor: 'var(--el-color-info-light-9)' }"` + `stripe` | 自定义表格背景色 / 无 stripe / 无统一宽度 |
+| 币种下拉统一用 `currencyTypes` from `useCommonSelectTypes`，不手写 CNY/USD/JPY/HKD 等 option | 页面内硬编码 `<el-option label="人民币" value="CNY"/>` |
+| 图片/文件上传统一用 `UploadFile` 组件，配 `v-model:fileListForShow` + `v-model:fileListForUpload` + `uploadParams` | 用 `el-upload` 直接接 OSS / 用 `el-input` 让用户粘贴 URL |
+| 表单项 `size` 默认不设置（让 `el-form` 全局统一），表单内 `el-input` / `el-select` / `el-button` / `el-input-number` / `el-date-picker` / `el-time-picker` 等组件均不写 `size="small"` / `size="large"` | 表单内组件单独设 `size="small"`、`size="large"` 等导致大小不一致 |
 | API 响应类型 `.then((res: ResponseData<Xxx>)` | `.then(res =>` 无类型 |
 
 > 编码规范详见 [coding-principles.md](references/coding-principles.md)，目录结构和框架规范详见 [web-dev-standards.md](references/web-dev-standards.md)
