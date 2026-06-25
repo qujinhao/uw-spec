@@ -1,6 +1,36 @@
 # UniApp开发示例
 
 > 所有示例基于 gencode 生成的 API 类型。类型从 `@/api/` 导入，不在页面内重新定义。
+> 状态/类型判断使用 [`@/config/EnumConst`](../../../../src/config/EnumConst.ts)，下拉/筛选选项使用 [`@/config/optionsConst`](../../../../src/config/optionsConst.ts)，业务扩展枚举使用 [`@/config/EnumExtend`](../../../../src/config/EnumExtend.ts)；**禁止魔数 / 禁止手抄选项数组**。
+
+## 枚举与下拉选项
+
+```typescript
+// ✅ 状态判断 - 使用 EnumConst
+import { StateOrder } from '@/config/EnumConst'
+
+const isPaid = (state: StateOrder) => state === StateOrder.PAY_SUCCESS
+const isPending = (state: StateOrder) =>
+  [StateOrder.ORDER_NEW, StateOrder.ORDER_AUDIT].includes(state)
+```
+
+```vue
+<!-- ✅ 下拉/筛选 - 使用 optionsConst -->
+<script setup lang="ts">
+import { ref } from 'vue'
+import { StateOrderOptions } from '@/config/optionsConst'
+import { StateOrder } from '@/config/EnumConst'
+
+const filterState = ref<StateOrder>()
+</script>
+
+<template>
+  <uni-data-select v-model="filterState" :localdata="StateOrderOptions" />
+
+  <!-- 枚举值 → i18n 文案 -->
+  <text>{{ $t(`enumeration.StateOrder.${filterState}`) }}</text>
+</template>
+```
 
 ## API 对接
 
@@ -24,13 +54,18 @@ const loadList = async (isRefresh = false) => {
     const res = await guestXxxList({
       param: { $pg: pageNum.value, $rn: 20 }
     })
-    const results = res.data?.results || []
-    if (isRefresh) {
-      list.value = results
-    } else {
-      list.value.push(...results)
+    // ✅ 先判 state（业务级失败由调用方处理；401/403/498 已被拦截器接管）
+    if (res.state !== 'success') {
+      uni.showToast({ title: res.msg, icon: 'none' })
+      return
     }
-    hasMore.value = results.length >= 20
+    const items = res.data?.list || []
+    if (isRefresh) {
+      list.value = items
+    } else {
+      list.value.push(...items)
+    }
+    hasMore.value = items.length >= 20
     pageNum.value++
   } finally {
     loading.value = false
@@ -38,23 +73,50 @@ const loadList = async (isRefresh = false) => {
 }
 ```
 
-### 详情页 API 对接
+### 详情页 API 对接（含 GbLoading）
 
-```typescript
+```vue
+<script setup lang="ts">
 import { ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
+import GbLoading from '@/components/GbLoading/index.vue'
 import { guestXxxLoad } from '@/api/guestXxx'
 import type { XxxDetail } from '@/api/guestXxx'
 
 const detail = ref<XxxDetail | null>(null)
+const showLoading = ref(false)
 
-onLoad(async (options) => {
-  const id = options?.id
-  if (id) {
-    const res = await guestXxxLoad({ id: Number(id) })
+const loadDetail = async (id: number) => {
+  showLoading.value = true
+  try {
+    const res = await guestXxxLoad({ id })
+    if (res.state !== 'success') {
+      uni.showToast({ title: res.msg, icon: 'none' })
+      return
+    }
     detail.value = res.data ?? null
+  } finally {
+    // ✅ 必须 finally，避免异常时 loading 卡死
+    showLoading.value = false
   }
+}
+
+onLoad((options) => {
+  if (options?.id) loadDetail(Number(options.id))
 })
+</script>
+
+<template>
+  <GbLoading v-model="showLoading" />
+  <view v-if="detail">…</view>
+
+  <!-- 加载失败占位（detail 为空且 loading 结束） -->
+  <view v-else-if="!showLoading" class="flex flex-col items-center py-20">
+    <image src="/static/images/empty/load-failed.png" mode="widthFix" class="w-50 h-50" />
+    <text class="text-foreground-muted mt-4">{{ $t('common.loadFailed') }}</text>
+    <button class="mt-4" @click="loadDetail(currentId)">{{ $t('common.retry') }}</button>
+  </view>
+</template>
 ```
 
 ### 表单提交
@@ -217,32 +279,59 @@ const handleLogin = async () => {
 }
 ```
 
-## Store 使用
+## Store 使用（对齐现有 [src/store/user.ts](../../../../src/store/user.ts) 风格）
 
 ```typescript
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { guestInfoLoad } from '@/api/guestInfo'
-import type { GuestInfoVO } from '@/api/guestInfo'
+import { guestUserInfoLoad, type GuestInfoExt } from '@/api/saasMallAppGuestApi'
+import type { TokenResponse } from '@/api/saasMallAppOpenApi'
 
-export const useUserStore = defineStore('user', () => {
-  const token = ref('')
-  const userInfo = ref<GuestInfoVO | null>(null)
-  const isLogin = computed(() => !!token.value)
+export const useUserStore = defineStore(
+  'user',
+  () => {
+    /* ---------- state ---------- */
+    const loginInfo = ref<TokenResponse>({})
+    const userInfo = ref<GuestInfoExt>({})
 
-  const fetchUserInfo = async () => {
-    const res = await guestInfoLoad()
-    userInfo.value = res.data ?? null
+    /* ---------- getters ---------- */
+    const token = computed(() => loginInfo.value?.token || '')
+    const isLogin = computed(() => !!loginInfo.value?.token)
+
+    /* ---------- actions ---------- */
+    function setLoginInfo(info: TokenResponse) {
+      loginInfo.value = info
+    }
+
+    async function setUserInfo(info?: GuestInfoExt) {
+      if (info) {
+        userInfo.value = info
+        return
+      }
+      const res = await guestUserInfoLoad()
+      if (res.state === 'success') userInfo.value = res.data || {}
+    }
+
+    function clearLoginCache() {
+      loginInfo.value = {}
+      userInfo.value = {}
+    }
+
+    /* ---------- 统一导出 ---------- */
+    return {
+      loginInfo,
+      userInfo,
+      token,
+      isLogin,
+      setLoginInfo,
+      setUserInfo,
+      clearLoginCache,
+    }
+  },
+  {
+    unistorage: true, // pinia-plugin-unistorage 持久化
   }
-
-  const logout = () => {
-    token.value = ''
-    userInfo.value = null
-    uni.removeStorageSync('token')
-  }
-
-  return { token, userInfo, isLogin, fetchUserInfo, logout }
-})
+)
 ```
 
 ## 测试
@@ -256,25 +345,25 @@ describe('useUserStore', () => {
     vi.clearAllMocks()
   })
 
-  it('logout 应清除用户信息', () => {
+  it('clearLoginCache 应清除登录与用户信息', () => {
     const store = useUserStore()
-    store.token = 'test-token'
+    store.setLoginInfo({ token: 'test-token' } as any)
     store.userInfo = { nickname: 'test' } as any
 
-    store.logout()
+    store.clearLoginCache()
 
     expect(store.token).toBe('')
-    expect(store.userInfo).toBeNull()
-    expect(uni.removeStorageSync).toHaveBeenCalledWith('token')
+    expect(store.userInfo).toEqual({})
   })
 
-  it('isLogin 应反映 token 状态', () => {
+  it('isLogin / token 应反映 loginInfo.token', () => {
     const store = useUserStore()
-    store.token = ''
+    store.setLoginInfo({} as any)
     expect(store.isLogin).toBe(false)
 
-    store.token = 'valid-token'
+    store.setLoginInfo({ token: 'valid-token' } as any)
     expect(store.isLogin).toBe(true)
+    expect(store.token).toBe('valid-token')
   })
 })
 ```
