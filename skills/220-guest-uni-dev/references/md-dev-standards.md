@@ -27,7 +27,6 @@
 {
   "easycom": {
     "custom": {
-      "^m-(.*)": "@/mall-widgets/m-$1/m-$1.vue",
       "^uni-(.*)": "@dcloudio/uni-ui/lib/uni-$1/uni-$1.vue",
       "^u--(.*)": "uview-plus/components/u-$1/u-$1.vue",
       "^up-(.*)": "uview-plus/components/u-$1/u-$1.vue",
@@ -43,13 +42,11 @@
 | ----------------------------------- | ------------------- | ------------------------------------------------------------------------------ |
 | `<uni-xxx>`                         | `@dcloudio/uni-ui`  | 标准 UniApp 官方组件（form、list、popup、calendar 等基础组件）                 |
 | `<u-xxx>` / `<up-xxx>` / `<u--xxx>` | `uview-plus`        | 复杂 UI 场景（按钮、表单、弹窗、tabs、grid、上传等扩展能力）                   |
-| `<m-xxx>`                           | `src/mall-widgets/` | **业务装修组件**（仅装修体系项目存在，如 `m-button`、`m-swiper`、`m-product`） |
 
 | ✅ 推荐                                | ❌ 不推荐                             |
 | -------------------------------------- | ------------------------------------- |
 | 同一类组件优先选**一个库**保持视觉一致 | 同页面混用两个库的按钮/弹窗           |
 | 简单基础能力优先 `uni-ui`              | 简单组件直接用 `uview-plus` 大组件    |
-| 自定义业务装修走 `mall-widgets/m-*`    | 把装修逻辑直接写到页面里              |
 | 使用 easycom 自动引入                  | 手动 `import` 已被 easycom 注册的组件 |
 
 ## 目录结构规范
@@ -70,7 +67,6 @@ src/
 ├── pages/                     # 主包：入口/登录/渲染容器/WebView 等
 │   ├── home/                  # 首页
 │   ├── login/                 # 登录/注册/忘记密码
-│   ├── render/                # 装修页面渲染容器
 │   └── webView/               # WebView 容器
 ├── packages/                  # 分包根（默认）：所有业务分包尽量放这里
 │   ├── setting/               # 用户设置、资料、账号、地址
@@ -95,7 +91,7 @@ src/
 | 优先级           | 位置                          | 适用场景                                  | 示例                                                      |
 | ---------------- | ----------------------------- | ----------------------------------------- | --------------------------------------------------------- |
 | **默认（推荐）** | `src/packages/{module}/`      | 绝大多数业务分包                          | `packages/setting/`、`packages/coupon/`、`packages/view/` |
-| 特殊情况         | `src/{module}/` 直接挂 src 下 | 业务方不希望路由路径出现 `packages/` 前缀 | `src/product/`、`src/poi/`、`src/user/`、`src/template/`  |
+| 特殊情况         | `src/{module}/` 直接挂 src 下 | 业务方不希望路由路径出现 `packages/` 前缀 | `src/product/`、`src/poi/`、`src/user/`                   |
 
 > **特殊位置的分包必须同步在 [pages.json](../../../../src/pages.json) 的 `subPackages[].root` 中显式注册**。新分包默认放入 `src/packages/`，需要特殊位置时由业务方显式确认。
 
@@ -107,14 +103,13 @@ src/
 | 主包仅放入口与公共容器         | `src/pages/` 不堆放业务详情/列表页                                                                                                        |
 | 业务分包默认放 `src/packages/` | 仅在路由不希望带 `packages/` 时才挂 `src/` 根                                                                                             |
 | 二级模块沿用 camelCase         | `productDetail`、`placeOrder`、`orderList`、`addressManage`、`accountSafe` 等保持不变                                                     |
-| 装修组件统一前缀 `m-`          | 放在 `src/mall-widgets/m-{name}/m-{name}.vue`，通过 `pages.json` easycom 自动注册（仅装修体系项目存在）                                   |
 | **API 平铺单文件**             | `src/api/` 下按**服务前缀 camelCase** 平铺：`saasMallAppGuestApi.ts`、`authUwAuthCenterApiAuth.ts`，不再按模块拆目录                      |
 | **API 通用基础设施**           | `src/api/request/` 通用请求函数（拦截器/错误处理）、`src/api/type/` 通用类型（`API_TYPE.ts` 中的 `ResponseData<T>`、`DataList<T>` 等）    |
 | **静态资源分类**               | `src/static/` 下通常包含 `images/`（图片）与 `font/`（字体/iconfont）两个子目录；TabBar 图标可放 `static/tabbar/`，图片按业务域再分子目录 |
 
 ## 页面布局模式
 
-消费者端通常采用「**单页/多分包页面 + 可选 TabBar**」模式，**TabBar 是否启用由业务决定，非强制**。当前项目（`uw-uni-template`）即未配置 TabBar。
+消费者端采用「**主包 TabBar + 多分包业务页面**」模式，**TabBar 是项目固定配置项**，所有项目都必须在 [pages.json](../../../../src/pages.json) 中配置 `tabBar.list`。
 
 **启用 TabBar 的项目**：
 
@@ -129,8 +124,6 @@ src/
 │  首页  分类  发现  我的│  ← TabBar（底部固定，Tab 数量由 PRD 决定）
 └─────────────────────┘
 ```
-
-**未启用 TabBar 的项目**：通过自定义底部组件、单页面入口或装修模板渲染容器（如 [pages/render/index.vue](../../../../src/pages/render/index.vue)）实现导航。
 
 ### 导航模式
 
@@ -161,8 +154,7 @@ src/
 | 类型       | 规范                                        | 示例                                                                           |
 | ---------- | ------------------------------------------- | ------------------------------------------------------------------------------ |
 | 页面文件   | camelCase 或 kebab-case，沿用现有项目       | `productDetail/index.vue`、`orderList/index.vue`、`forgetPassword.vue`         |
-| 组件文件   | PascalCase（推荐）或 kebab-case（沿用）     | `OrderItem.vue`、`render-widget.vue`                                           |
-| 装修组件   | `m-{name}` 前缀                             | `m-button/m-button.vue`                                                        |
+| 组件文件   | PascalCase（推荐）或 kebab-case（沿用）     | `OrderItem.vue`                                                                |
 | Store 文件 | kebab-case                                  | `user.ts`                                                                      |
 | API 文件   | 服务前缀 camelCase                          | `saasMallAppGuestApi.ts`、`authUwAuthCenterApiAuth.ts`                         |
 | 类型文件   | UPPER_SNAKE 或 kebab-case                   | `API_TYPE.ts`、`type.ts`                                                       |
@@ -492,7 +484,7 @@ export const useUserStore = defineStore(
 | 层             | 来源                                                    | 说明                                                                                 |
 | -------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------ |
 | **真实 token** | `loginInfo.token`（登录后写入）                         | 通过 `useUserStore().setLoginInfo()` 设置，自动同步到 `tokenManager`                 |
-| **外部 token** | URL query `?token=xxx` 或装修预览 `requestConfig.token` | 通过 `useUserStore().setToken()` 写入 sessionStorage；常用于 H5 嵌入、装修预览       |
+| **外部 token** | URL query `?token=xxx`                                  | 通过 `useUserStore().setToken()` 写入 sessionStorage；常用于 H5 嵌入                 |
 | **匿名 token** | `0$1!0@${saasId}`                                       | `tokenManager.getToken()` 在无真实/外部 token 时自动生成，用于游客身份调用白名单接口 |
 
 > 实际取值优先级：`loginInfo.token` > `outSideToken`(sessionStorage) > 匿名 token。请求层通过 `getToken()` 统一获取。
@@ -570,7 +562,7 @@ const handleLogin = async () => {
 };
 ```
 
-### 外部 token 注入模板（装修预览 / H5 嵌入）
+### 外部 token 注入模板（H5 嵌入）
 
 ```typescript
 // onLoad 或入口页
@@ -583,101 +575,6 @@ if (launch.query?.requestConfig) {
   if (cfg.token) userStore.setToken(cfg.token);
 }
 ```
-
-## 装修 / 渲染引擎规范
-
-> 项目内置「装修 DSL + `m-*` 组件库 + render-widget 渲染器」三件套，是项目的核心特色。新增装修能力请遵循以下约定。
-
-### 体系架构
-
-```
-┌────────────────────────┐
-│  装修平台（外部 iframe）│
-│  postMessage(init/move │
-│   /drop/list/...)      │
-└──────────┬─────────────┘
-           │ window.message
-           ▼
-┌────────────────────────────────────────┐
-│ src/pages/render/index.vue             │
-│ - 接收平台消息（init/move/drop/list）  │
-│ - 维护 list[] = ComponentItem[]        │
-│ - vuedraggable 渲染                    │
-│ - listeningDom() 上报高度              │
-└──────────┬─────────────────────────────┘
-           │ v-for
-           ▼
-┌────────────────────────────────────────┐
-│ <widget-shape :widget>                 │
-│   <render-widget :item :component-msg> │
-│     ↓ 根据 item.component 分发         │
-│     <m-swiper> / <m-product> / ...     │
-│   </render-widget>                     │
-│ </widget-shape>                        │
-└────────────────────────────────────────┘
-```
-
-### 关键模块
-
-| 模块        | 文件                                                                             | 职责                                                                                 |
-| ----------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| 渲染容器    | [src/pages/render/index.vue](../../../../src/pages/render/index.vue)             | 装修预览页，监听 `window.message`，维护 `list` + `pageConfig`，向父窗口回传高度/封面 |
-| 形状包装    | [src/components/widget-shape.vue](../../../../src/components/widget-shape.vue)   | 给每个装修组件加边距/选中态/拖拽容器                                                 |
-| 渲染分发    | [src/components/render-widget.vue](../../../../src/components/render-widget.vue) | 根据 `item.component` 字符串分发到对应 `m-*` 组件                                    |
-| 装修组件库  | [src/mall-widgets/](../../../../src/mall-widgets)                                | `m-*` 装修组件（≈25 个：m-swiper / m-product / m-cap-cube / m-cms / ...）            |
-| Schema 描述 | [src/schema/](../../../../src/schema)                                            | 每个装修组件的字段配置（`component.json`），供装修平台生成属性面板                   |
-| 装修模板    | [src/template/](../../../../src/template)                                        | 装修示例模板分包（首页/Tab 模板/自定义页等）                                         |
-
-### 装修组件 DSL（`item` 数据结构）
-
-```typescript
-interface WidgetItem {
-  id: string; // 唯一 ID（widget+id 用于 DOM 锚点）
-  component: string; // 组件名，如 'm-swiper' / 'm-product' / 'waiting'
-  attrs?: Record<string, any>; // 业务属性（数据源、行列、模板号等）
-  styles?: Record<string, any>; // 视觉样式（padding、radius、background...）
-  options?: Record<string, any>; // 编辑器附加配置（如 catalogId、绑定的内容来源）
-  listField?: { pathKey?: string; imgKey?: string }; // 数据字段映射
-  height?: number; // 由 render 页计算后回传给装修平台
-}
-```
-
-> 每个装修组件必须能接收 `attrs` / `styles` / `list`（或 `data` / `lists`），并通过 `@jump` 触发跳转。
-
-### 新增装修组件流程
-
-| 步骤            | 操作                                                                                                                                   |
-| --------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| 1. 创建目录     | `src/mall-widgets/m-{name}/`，约定结构：`m-{name}.vue` + 可选 `type.ts`（Props 类型） + 可选 `style/index.scss` + 可选 `images/`       |
-| 2. 类型定义     | 在 `type.ts` 中导出 `Attrs` / `Styles` / 其他 props 接口（参考 [m-cap-cube/type.ts](../../../../src/mall-widgets/m-cap-cube/type.ts)） |
-| 3. 实现组件     | Props: `attrs: Attrs`、`styles: Styles`、`list?: any[]`；通过 `defineEmits(['jump'])` 触发跳转                                         |
-| 4. 注册分发     | 在 [render-widget.vue](../../../../src/components/render-widget.vue) 中添加 `v-if="item.component == 'm-{name}'"` 分支                 |
-| 5. Schema 描述  | 在 [src/schema/m-{name}/component.json](../../../../src/schema/m-search/component.json) 定义字段（name/icon/fields），供装修平台读取   |
-| 6. easycom 注册 | `m-*` 已通过 `pages.json` easycom 规则 `^m-(.*)` 自动注册，无需 import                                                                 |
-| 7. 公共样式     | 如有共享样式注册到 [mall-widgets/utils/registerBaseStyle.ts](../../../../src/mall-widgets/utils/registerBaseStyle.ts)                  |
-
-### 约定
-
-| ✅ 正确                                                                                                       | ❌ 错误                                   |
-| ------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
-| `m-*` 装修组件统一放 `src/mall-widgets/`                                                                      | 把装修组件放到 `src/components/`          |
-| 业务页面引用装修组件用 `<m-xxx>`（easycom 注册）                                                              | 手动 `import` 装修组件                    |
-| 装修组件接收 `attrs` / `styles` / `list` 三类 props                                                           | 把所有配置混在一个对象里                  |
-| 装修页面通过 `<render-widget :item>` 渲染                                                                     | 在业务页面手写 `v-if` 分发                |
-| 跳转通过 `emit('jump', target)` 上抛                                                                          | 装修组件内部直接 `uni.navigateTo`         |
-| schema 字段定义放 `src/schema/m-{name}/component.json`                                                        | 把字段配置塞到 `.vue` 里                  |
-| 装修预览页处理 `window.message` 与父平台通信                                                                  | 装修组件内部直接 `postMessage`            |
-| 外部 token / requestConfig 由 [pages/render/index.vue](../../../../src/pages/render/index.vue) 在入口统一处理 | 每个装修组件自己读 `getLaunchOptionsSync` |
-
-### 装修页面与正式页面的关系
-
-| 用途                               | 文件                                                             | 说明                               |
-| ---------------------------------- | ---------------------------------------------------------------- | ---------------------------------- |
-| **装修预览**（带平台 iframe 通信） | [pages/render/index.vue](../../../../src/pages/render/index.vue) | 接收 `init` 等消息，可拖拽编辑     |
-| **正式页面渲染**                   | 业务页面引用 `<render-widget :item>` 即可静态渲染装修 DSL        | 不需要 vuedraggable / postMessage  |
-| **示例模板**                       | [template/](../../../../src/template)                            | 装修模板分包，包含完整页面结构示例 |
-
-> **新业务页面**如需复用装修体系，直接用 `<render-widget :item="widget" :component-msg="data" />` 渲染 DSL，不要复制 `render/index.vue` 的 postMessage 逻辑。
 
 ## 样式体系规范
 
@@ -721,7 +618,7 @@ interface WidgetItem {
 
 | 平台 / 场景             | 推荐单位                                                                           |
 | ----------------------- | ---------------------------------------------------------------------------------- |
-| 装修/小程序内 SCSS 尺寸 | `rpx`（750 设计稿基准）                                                            |
+| 小程序内 SCSS 尺寸      | `rpx`（750 设计稿基准）                                                            |
 | Tailwind class          | Tailwind 默认尺寸（`p-4` / `text-sm` ...），`rem2rpx: false` 不自动转换            |
 | 字号（page 全局）       | [base.scss](../../../../src/styles/base.scss) 已定义 `page { font-size: 28rpx }`   |
 | 安全区 / 刘海屏         | 通过 `mainStore.statusHeight`（顶部状态栏 px）+ `env(safe-area-inset-bottom)` 处理 |
@@ -773,7 +670,6 @@ interface WidgetItem {
 | 安全区高度用 `mainStore.statusHeight` + `env(safe-area-inset-bottom)` | 硬编码 `padding-top: 44px`                             |
 | SCSS 必须加 `scoped`                                                  | 全局 `<style>` 污染其他组件                            |
 | 小程序兼容 Tailwind 已由 `weapp-tailwindcss` 处理，直接写 class       | 为了兼容小程序退回纯 SCSS                              |
-| 装修组件保留必要的 inline `:style` 驱动配置                           | 装修组件把所有动态样式写成 SCSS 类名                   |
 
 ## 业务通用组件清单（新增页面优先复用）
 
@@ -786,7 +682,7 @@ interface WidgetItem {
 | `Z*`                 | 自研业务组件（zowoyoo 系），偏视觉/容器/能力封装 | `ZCalendar`、`ZRichText`、`ZScrollView`、`ZTag`、`ZTitle`、`ZUp`、`ZScenicInfo`、`ZDateScrollView` |
 | `Gb*`                | 全局通用组件（Global），偏 UI 框架级             | `GbLoading`、`GbNavbar`                                                                            |
 | 业务名               | 单一职责的业务弹窗/能力组件，按业务命名          | `PaymentPopup`、`SharePopup`、`Verify`、`NavBar`                                                   |
-| `*-cmp` / kebab-case | 渲染/装修体系内部使用的辅助组件                  | `waiting-cmp`、`render-widget`、`widget-shape`                                                     |
+| `*-cmp` / kebab-case | 特殊辅助命名                                     | 通用 kebab-case 辅助组件                                                                           |
 
 ### 现有组件目录索引
 
@@ -806,9 +702,6 @@ interface WidgetItem {
 | **PaymentPopup**    | [components/PaymentPopup/](../../../../src/components/PaymentPopup)          | 支付方式选择弹窗（配合 `mainStore.paymentConfigList`）                |
 | **SharePopup**      | [components/SharePopup/](../../../../src/components/SharePopup)              | 分享方式选择弹窗（H5/小程序/App 三端）                                |
 | **Verify**          | [components/Verify/](../../../../src/components/Verify)                      | 行为验证码（输入/点选/旋转/滑动 4 种），登录/敏感操作前置校验         |
-| **waiting-cmp**     | [components/waiting-cmp/](../../../../src/components/waiting-cmp)            | 装修拖拽时的占位组件（仅装修体系使用）                                |
-| **render-widget**   | [components/render-widget.vue](../../../../src/components/render-widget.vue) | 装修 DSL 渲染分发器（详见装修规范）                                   |
-| **widget-shape**    | [components/widget-shape.vue](../../../../src/components/widget-shape.vue)   | 装修组件的形状/选中态包装容器                                         |
 
 ### 复用决策流程
 
@@ -821,9 +714,7 @@ interface WidgetItem {
         ↓ 否
   Step 3：@dcloudio/uni-ui（uni-*）是否有？       ──► 用之
         ↓ 否
-  Step 4：是否是装修能力 → mall-widgets（m-*）？  ──► 用之 / 新增 m-{name}
-        ↓ 否
-  Step 5：自研，放 src/components/ 下，按命名规范命名（Z* / Gb* / 业务名）
+  Step 4：自研，放 src/components/ 下，按命名规范命名（Z* / Gb* / 业务名）
 ```
 
 ### 新增通用组件约定
@@ -831,7 +722,7 @@ interface WidgetItem {
 | ✅ 正确                                                                                                | ❌ 错误                                                   |
 | ------------------------------------------------------------------------------------------------------ | --------------------------------------------------------- |
 | 自研通用组件放 `src/components/{Name}/index.vue`                                                       | 散落在某个业务页面目录里复制粘贴                          |
-| 命名遵循 `Z*` / `Gb*` / 业务名 三类前缀                                                                | 用 kebab-case 命名业务组件（kebab-case 留给装修体系内部） |
+| 命名遵循 `Z*` / `Gb*` / 业务名 三类前缀                                                                | 用 kebab-case 命名业务组件（kebab-case 留给特殊辅助组件） |
 | 独立 `style/index.scss` 放组件目录下                                                                   | 把组件样式写到全局 `styles/base.scss`                     |
 | 组件类型定义放 `type.ts`（如 [PaymentPopup/type.ts](../../../../src/components/PaymentPopup/type.ts)） | 在 `.vue` 内重复定义类型                                  |
 | Props 通过 `defineProps<T>()` + `withDefaults`，事件通过 `defineEmits<{...}>()`                        | 用 Options API 风格                                       |
@@ -1322,7 +1213,6 @@ import { showWebViewLogin } from "@/utils/app/webViewLogin";
 | Toast 加载         | `uni.showToast({ icon: 'loading' })`                                                                               | 极短反馈（< 1.5s）                                                                      |
 | 列表分页           | `<uni-load-more>`（uni-ui）/ `<u-loadmore>`（uview-plus）                                                          | 列表上拉加载 / 触底加载                                                                 |
 | 空状态             | `<uni-load-more status="noMore">` + 业务图文                                                                       | 列表无数据 / 加载失败                                                                   |
-| 装修占位           | [components/waiting-cmp/](../../../../src/components/waiting-cmp)                                                  | **仅装修拖拽预览使用**，业务页面不要用                                                  |
 
 #### 场景与方案映射
 
@@ -1484,7 +1374,6 @@ const handleSubmit = async () => {
 | 列表空 + loading 并存场景（首屏）优先显示 loading                    | 同时显示「加载中」和「暂无数据」            |
 | 文案走 i18n（`common.noData` / `common.retry`）                      | 硬编码中文「暂无数据」                      |
 | `GbLoading` 的 `v-model` 在 `finally` 置 false                       | 仅在 try 末尾置 false（异常时卡死）         |
-| 装修组件预览用 `waiting-cmp`（仅装修）                               | 在业务页面用 `waiting-cmp`                  |
 | 骨架屏与 `GbLoading` 二选一                                          | 同一页面两者同时出现                        |
 
 #### 自动化检查
@@ -1657,7 +1546,7 @@ const handleCreateOrder = async () => {
 | 规范       | 说明                                                                                 |
 | ---------- | ------------------------------------------------------------------------------------ |
 | 路径格式   | `{root}/{module}/{page}`：主包加到 `pages`，业务分包加到 `subPackages[].pages`       |
-| TabBar     | **按需，非必须**。是否启用、Tab 数量、图标均由业务/PRD 决定（当前项目未启用 TabBar） |
+| TabBar     | **固定配置**。所有项目都必须在 pages.json 中配置 tabBar.list；Tab 数量、图标由 PRD 决定 |
 | 导航栏     | 每个页面配置 `navigationBarTitleText`                                                |
 | 自定义导航 | 需要自绘顶部时使用 `navigationStyle: "custom"`                                       |
 | 分包       | 主包 ≤ 2MB，超出使用 `subPackages` 分包                                              |

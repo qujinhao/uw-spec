@@ -3,7 +3,7 @@
 > 以下模板展示通用模式。实际开发中：
 >
 > - API 函数从 `@/api/` 导入；
-> - **UI 组件**优先使用 easycom 自动注册的 `<uni-*>`（uni-ui）、`<u-*>` / `<up-*>` / `<u--*>`（uview-plus）、`<m-*>`（mall-widgets），无需 import；
+> - **UI 组件**优先使用 easycom 自动注册的 `<uni-*>`（uni-ui）、`<u-*>` / `<up-*>` / `<u--*>`（uview-plus），无需 import；
 > - **文案**统一走 `vue-i18n`（`$t()` / `t()`），4 种语言（zh-CN / zh-TW / en / ja）的 key 同步补齐。
 
 ---
